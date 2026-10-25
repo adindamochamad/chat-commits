@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 24 Oct 2026.
+Last updated: 25 Oct 2026.
 
 | Item | Status |
 |---|---|
@@ -13,7 +13,7 @@ Last updated: 24 Oct 2026.
 | Session ID | `01a16c9a-be41-7f60-9ee3-1dc21ce91da6` (Prompt 1 `codex exec` thread) |
 | Spike `@openai/codex-sdk` 3× latency | **GO** — see below |
 | Twitch developer app | **Not started** |
-| Application code | Spike only (`spike/`, stub `game-api/`); main app not started |
+| Application code | Server foundation started: EventSub chat, `!commit`, `!vote`, in-memory queue |
 | Overlay / dashboard / game | Not started |
 | Video | Not started |
 | Devpost Enter a Submission | Not started |
@@ -37,8 +37,14 @@ Codex build thread also reported 6.84 s / 5.13 s / 5.40 s (3/3 pass) during the 
 
 `pnpm typecheck` passes (spike + stub API only).
 
+## Oct 25–26 block
+
+- EventSub WebSocket connects, subscribes to `channel.chat.message`, handles reconnect/keepalive, and deduplicates delivered messages.
+- `!commit <idea>` creates an in-memory proposal; `!vote <proposal-id>` records one active vote per chatter.
+- `ProposalQueue.selectWinner()` closes out the top open proposal (ties use earliest submission) as the Codex pipeline handoff.
+- `pnpm typecheck` passes. Live Twitch connectivity still needs `.env` credentials and the bot user's `user:read:chat` scope.
+
 ## Blocker berikutnya
 
-1. Continue in the **same Codex session** (`01a16c9a-be41-7f60-9ee3-1dc21ce91da6`) or resume it for Prompt 2.
-2. Prompt 2 (`docs/CODEX_KICKOFF.md`): implement PRD Oct 25–26 block (EventSub bot, proposal queue, voting). Run `pnpm typecheck`.
-3. Twitch developer app setup (parallel when convenient).
+1. Implement the Oct 27–28 block: Codex patch pipeline and validation.
+2. Set up the Twitch developer app and bot token to exercise live chat ingest.

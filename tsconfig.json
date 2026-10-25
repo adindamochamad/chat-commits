@@ -8,5 +8,5 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["spike/**/*.ts", "game-api/**/*.d.ts"]
+  "include": ["spike/**/*.ts", "server/**/*.ts", "game-api/**/*.d.ts"]
 }
