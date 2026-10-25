@@ -1,0 +1,15 @@
+{
+  "name": "chat-commits",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "spike": "tsx spike/codex-patch.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@openai/codex-sdk": "^0.164.0",
+    "@types/node": "^24.10.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  }
+}
