@@ -12,7 +12,7 @@ export interface Proposal {
   author: ChatAuthor;
   createdAt: string;
   votes: number;
-  status: "open" | "selected";
+  status: "queued" | "voting" | "selected";
 }
 
 export type ProposalResult =
@@ -23,10 +23,11 @@ export type VoteResult =
   | { ok: true; proposal: Proposal; changed: boolean }
   | { ok: false; reason: "not_found" | "closed" };
 
-/** In-memory proposal queue. Each chatter has one vote across open proposals. */
+/** In-memory proposal queue with explicit voting rounds. */
 export class ProposalQueue extends EventEmitter {
   private readonly proposals = new Map<string, Proposal>();
   private readonly voterChoices = new Map<string, string>();
+  private votingRoundActive = false;
 
   constructor(private readonly maxOpenProposals = 50) {
     super();
@@ -36,7 +37,7 @@ export class ProposalQueue extends EventEmitter {
     const idea = text.trim();
     if (!idea) return { ok: false, reason: "empty" };
     if (idea.length > 280) return { ok: false, reason: "too_long" };
-    if (this.openProposals().length >= this.maxOpenProposals) {
+    if (this.queuedOrVotingProposals().length >= this.maxOpenProposals) {
       return { ok: false, reason: "queue_full" };
     }
 
@@ -48,7 +49,7 @@ export class ProposalQueue extends EventEmitter {
       author: { ...author },
       createdAt: new Date().toISOString(),
       votes: 0,
-      status: "open",
+      status: this.votingRoundActive ? "voting" : "queued",
     };
     this.proposals.set(id, proposal);
     this.emit("proposal", proposal);
@@ -59,7 +60,7 @@ export class ProposalQueue extends EventEmitter {
   vote(proposalId: string, voterId: string): VoteResult {
     const proposal = this.proposals.get(proposalId);
     if (!proposal) return { ok: false, reason: "not_found" };
-    if (proposal.status !== "open") return { ok: false, reason: "closed" };
+    if (proposal.status !== "voting") return { ok: false, reason: "closed" };
 
     const previousId = this.voterChoices.get(voterId);
     if (previousId === proposalId) {
@@ -67,7 +68,7 @@ export class ProposalQueue extends EventEmitter {
     }
     if (previousId) {
       const previous = this.proposals.get(previousId);
-      if (previous?.status === "open") previous.votes = Math.max(0, previous.votes - 1);
+      if (previous?.status === "voting") previous.votes = Math.max(0, previous.votes - 1);
     }
     proposal.votes += 1;
     this.voterChoices.set(voterId, proposalId);
@@ -76,15 +77,49 @@ export class ProposalQueue extends EventEmitter {
     return { ok: true, proposal: this.copy(proposal), changed: true };
   }
 
-  /** Closes and returns the current winner; ties go to the earliest proposal. */
+  /** Moves queued proposals into a new round. New proposals join an active round. */
+  startVotingRound(): number {
+    if (this.votingRoundActive) return 0;
+    this.votingRoundActive = true;
+    const queued = [...this.proposals.values()].filter((proposal) => proposal.status === "queued");
+    for (const proposal of queued) {
+      proposal.status = "voting";
+      proposal.votes = 0;
+    }
+    this.voterChoices.clear();
+    if (queued.length) this.emit("change", this.list());
+    return queued.length;
+  }
+
+  hasVotingRound(): boolean {
+    return this.votingRoundActive;
+  }
+
+  hasQueuedProposals(): boolean {
+    return [...this.proposals.values()].some((proposal) => proposal.status === "queued");
+  }
+
+  /** Closes the round; ties go to the earliest proposal. */
   selectWinner(): Proposal | undefined {
-    const winner = this.openProposals().filter((proposal) => proposal.votes > 0).sort((a, b) =>
+    if (!this.votingRoundActive) return undefined;
+    this.votingRoundActive = false;
+    const voting = [...this.proposals.values()].filter((proposal) => proposal.status === "voting");
+    const winner = voting.filter((proposal) => proposal.votes > 0).sort((a, b) =>
       b.votes - a.votes || a.createdAt.localeCompare(b.createdAt),
     )[0];
-    if (!winner) return undefined;
-    winner.status = "selected";
-    for (const [voterId, proposalId] of this.voterChoices) {
-      if (proposalId === winner.id) this.voterChoices.delete(voterId);
+    for (const proposal of voting) {
+      if (proposal === winner) {
+        proposal.status = "selected";
+      } else {
+        proposal.status = "queued";
+        proposal.votes = 0;
+      }
+    }
+    this.voterChoices.clear();
+    if (!winner) {
+      this.emit("roundClosed", undefined);
+      this.emit("change", this.list());
+      return undefined;
     }
     const selected = this.copy(winner);
     this.emit("selected", selected);
@@ -103,8 +138,8 @@ export class ProposalQueue extends EventEmitter {
     return proposal ? this.copy(proposal) : undefined;
   }
 
-  private openProposals(): Proposal[] {
-    return [...this.proposals.values()].filter((proposal) => proposal.status === "open");
+  private queuedOrVotingProposals(): Proposal[] {
+    return [...this.proposals.values()].filter((proposal) => proposal.status !== "selected");
   }
 
   private copy(proposal: Proposal): Proposal {
