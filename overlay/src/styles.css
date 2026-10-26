@@ -1,0 +1,109 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  width: 1920px;
+  height: 1080px;
+  overflow: hidden;
+  background: transparent;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+#app {
+  position: relative;
+  width: 1920px;
+  height: 1080px;
+  background: transparent;
+}
+
+#game {
+  display: block;
+  width: 1920px;
+  height: 1080px;
+}
+
+#sandbox-host {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+.commit-card {
+  position: absolute;
+  left: 48px;
+  bottom: 48px;
+  width: 720px;
+  padding: 20px 24px;
+  background: rgba(23, 23, 23, 0.9);
+  border-top: 1px solid #ffeb00;
+  color: #f5f5f5;
+  transform: translateX(-120%);
+  transition: transform 280ms ease-out;
+}
+
+.commit-card.visible {
+  transform: translateX(0);
+}
+
+.commit-card__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 24px;
+  line-height: 1.35;
+}
+
+.commit-card__hash {
+  color: #ffeb00;
+  font-weight: 600;
+}
+
+.commit-card__idea {
+  margin-top: 12px;
+  font-size: 28px;
+  line-height: 1.3;
+}
+
+.vote-panel {
+  position: absolute;
+  right: 48px;
+  top: 48px;
+  width: 420px;
+  padding: 16px 20px;
+  background: rgba(23, 23, 23, 0.88);
+  border-left: 1px solid #ffeb00;
+  color: #f5f5f5;
+  font-size: 22px;
+}
+
+.vote-panel h2 {
+  margin: 0 0 12px;
+  font-size: 24px;
+  font-weight: 600;
+  color: #ffeb00;
+}
+
+.vote-panel ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.vote-panel li {
+  margin-bottom: 8px;
+}
+
+.status-line {
+  position: absolute;
+  left: 48px;
+  top: 48px;
+  padding: 10px 14px;
+  background: rgba(23, 23, 23, 0.85);
+  border: 1px solid #333;
+  color: #ddd;
+  font-size: 22px;
+}

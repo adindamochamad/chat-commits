@@ -4,6 +4,8 @@ Deadline keras: **2 Nov 2026 14:00 PST = 3 Nov 2026 05:00 WIB**. Target **1 Nov*
 
 Setelah periode tutup, submission **tidak bisa diedit**.
 
+Operator steps: [HACKATHON_RUNBOOK.md](HACKATHON_RUNBOOK.md) §5. Paste copy: [DEVPOST_DRAFT.md](DEVPOST_DRAFT.md). Screenshots: [screenshots/](screenshots/).
+
 ## Devpost fields
 
 - [ ] Title: Chat Commits
@@ -28,6 +30,17 @@ Setelah periode tutup, submission **tidak bisa diedit**.
 ## README (English)
 
 Install, Twitch app scopes, `.env` example without secrets, OBS browser source URL, how to run a fixture commit if Codex is slow, architecture one paragraph.
+
+- [x] README updated (see repo root)
+- [x] MIT [LICENSE](../LICENSE)
+
+## Pre-submit commands
+
+```bash
+npm run typecheck
+npm run smoke:demo   # with npm run dev running in another terminal
+npm run check:env    # after .env filled
+```
 
 ## Backup demo
 

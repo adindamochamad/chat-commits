@@ -6,7 +6,15 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "skipLibCheck": true,
+    "lib": ["ES2022", "DOM"],
     "types": ["node"]
   },
-  "include": ["spike/**/*.ts", "server/**/*.ts", "game-api/**/*.ts", "game-api/**/*.d.ts"]
+  "include": [
+    "spike/**/*.ts",
+    "server/**/*.ts",
+    "game-api/**/*.ts",
+    "game-api/**/*.d.ts",
+    "overlay/src/**/*.ts",
+    "dashboard/src/**/*.ts"
+  ]
 }

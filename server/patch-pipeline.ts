@@ -4,13 +4,14 @@ import { fileURLToPath } from "node:url";
 import { EventEmitter } from "node:events";
 import { Codex } from "@openai/codex-sdk";
 import type { Proposal } from "./proposals.js";
+import { loadFixturePatch } from "./fixture-loader.js";
 import { validateAndCompilePatch, type PatchValidation } from "./patch-validator.js";
 
 const DEFAULT_TIMEOUT_MS = 90_000;
 const MAX_PATCH_SIZE = 32_000;
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
-export type PatchStatus = "writing" | "pending" | "rejected";
+export type PatchStatus = "writing" | "pending" | "rejected" | "merged" | "vetoed";
 
 export interface PatchRecord {
   id: string;
@@ -22,6 +23,15 @@ export interface PatchRecord {
   source?: string;
   javascript?: string;
   rejectionReason?: string;
+  mergedAt?: string;
+}
+
+export interface CommitEntry {
+  hash: string;
+  patchId: string;
+  proposalText: string;
+  author: Proposal["author"];
+  mergedAt: string;
 }
 
 interface PatchJob {
@@ -33,6 +43,7 @@ interface PatchJob {
 export interface PatchPipelineOptions {
   timeoutMs?: number;
   workingDirectory?: string;
+  useFixtures?: boolean;
 }
 
 /** Generates, validates, compiles, and holds patches in memory pending review. */
@@ -42,12 +53,16 @@ export class PatchPipeline extends EventEmitter {
   private readonly workingDirectory: string;
   private readonly records = new Map<string, PatchRecord>();
   private readonly jobs: PatchJob[] = [];
+  private readonly commitLog: CommitEntry[] = [];
+  private readonly mergeStack: Array<{ id: string; javascript: string }> = [];
   private running = false;
+  private readonly useFixtures: boolean;
 
   constructor(options: PatchPipelineOptions = {}) {
     super();
     this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     this.workingDirectory = options.workingDirectory ?? projectRoot;
+    this.useFixtures = options.useFixtures ?? process.env.USE_FIXTURES === "1";
   }
 
   enqueue(proposal: Proposal): Promise<PatchRecord> {
@@ -85,6 +100,56 @@ export class PatchPipeline extends EventEmitter {
       .map((record) => this.copy(record));
   }
 
+  listCommits(): CommitEntry[] {
+    return this.commitLog.map((entry) => ({ ...entry, author: { ...entry.author } }));
+  }
+
+  getActiveJavascript(): string | undefined {
+    const top = this.mergeStack[this.mergeStack.length - 1];
+    return top?.javascript;
+  }
+
+  approve(id: string): { ok: true; commit: CommitEntry } | { ok: false; reason: string } {
+    const record = this.records.get(id);
+    if (!record) return { ok: false, reason: "not_found" };
+    if (record.status !== "pending") return { ok: false, reason: "not_pending" };
+    if (!record.javascript) return { ok: false, reason: "missing_javascript" };
+    record.status = "merged";
+    record.mergedAt = new Date().toISOString();
+    const commit: CommitEntry = {
+      hash: record.id.slice(0, 7),
+      patchId: record.id,
+      proposalText: record.proposalText,
+      author: { ...record.author },
+      mergedAt: record.mergedAt,
+    };
+    this.commitLog.push(commit);
+    this.mergeStack.push({ id: record.id, javascript: record.javascript });
+    this.emit("merged", { record: this.copy(record), commit });
+    this.emit("change", this.copy(record));
+    return { ok: true, commit };
+  }
+
+  veto(id: string): { ok: true; record: PatchRecord } | { ok: false; reason: string } {
+    const record = this.records.get(id);
+    if (!record) return { ok: false, reason: "not_found" };
+    if (record.status !== "pending") return { ok: false, reason: "not_pending" };
+    record.status = "vetoed";
+    delete record.javascript;
+    delete record.source;
+    this.emit("vetoed", this.copy(record));
+    this.emit("change", this.copy(record));
+    return { ok: true, record: this.copy(record) };
+  }
+
+  rollback(): { ok: true; activeJavascript: string | null } | { ok: false; reason: string } {
+    if (!this.mergeStack.length) return { ok: false, reason: "nothing_to_rollback" };
+    this.mergeStack.pop();
+    const activeJavascript = this.getActiveJavascript() ?? null;
+    this.emit("rollback", { activeJavascript });
+    return { ok: true, activeJavascript };
+  }
+
   private async drain(): Promise<void> {
     if (this.running) return;
     this.running = true;
@@ -103,6 +168,19 @@ export class PatchPipeline extends EventEmitter {
   private async process(job: PatchJob): Promise<void> {
     try {
       const apiDeclaration = await readFile(join(this.workingDirectory, "game-api/index.d.ts"), "utf8");
+      if (this.useFixtures) {
+        const fixture = await loadFixturePatch(job.proposal.text);
+        if (!fixture.ok) {
+          this.reject(job.record, fixture.reason);
+          return;
+        }
+        job.record.source = fixture.source;
+        job.record.javascript = fixture.javascript;
+        job.record.status = "pending";
+        this.emit("pending", this.copy(job.record));
+        this.emit("change", this.copy(job.record));
+        return;
+      }
       const thread = this.codex.startThread({
         workingDirectory: this.workingDirectory,
         sandboxMode: "read-only",

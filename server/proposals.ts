@@ -104,9 +104,9 @@ export class ProposalQueue extends EventEmitter {
     if (!this.votingRoundActive) return undefined;
     this.votingRoundActive = false;
     const voting = [...this.proposals.values()].filter((proposal) => proposal.status === "voting");
-    const winner = voting.filter((proposal) => proposal.votes > 0).sort((a, b) =>
-      b.votes - a.votes || a.createdAt.localeCompare(b.createdAt),
-    )[0];
+    const withVotes = voting.filter((proposal) => proposal.votes > 0);
+    const pool = withVotes.length ? withVotes : voting;
+    const winner = pool.sort((a, b) => b.votes - a.votes || a.createdAt.localeCompare(b.createdAt))[0];
     for (const proposal of voting) {
       if (proposal === winner) {
         proposal.status = "selected";

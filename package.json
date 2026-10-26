@@ -5,13 +5,22 @@
   "scripts": {
     "spike": "tsx spike/codex-patch.ts",
     "server": "tsx server/index.ts",
+    "dev": "concurrently -k \"SKIP_TWITCH=1 USE_FIXTURES=1 VOTING_WINDOW_MS=15000 tsx server/index.ts\" \"vite --config overlay/vite.config.ts\" \"vite --config dashboard/vite.config.ts\"",
+    "dev:live": "concurrently -k \"tsx server/index.ts\" \"vite --config overlay/vite.config.ts\" \"vite --config dashboard/vite.config.ts\"",
+    "check:env": "tsx scripts/check-twitch-env.ts",
+    "smoke:demo": "tsx scripts/demo-smoke.ts",
+    "build:overlay": "vite build --config overlay/vite.config.ts",
+    "build:dashboard": "vite build --config dashboard/vite.config.ts",
+    "build": "npm run build:overlay && npm run build:dashboard",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@openai/codex-sdk": "^0.164.0",
     "@types/node": "^24.10.0",
     "@types/ws": "^8.18.1",
-    "tsx": "^4.20.6"
+    "concurrently": "^9.2.1",
+    "tsx": "^4.20.6",
+    "vite": "^7.1.12"
   },
   "dependencies": {
     "dotenv": "^16.6.1",
